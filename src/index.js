@@ -1,10 +1,17 @@
 const express = require('express');
 const app = express();
 const cors = require('cors');
-const router = require('./routes/tracker.route');
+const bodyParser = require('body-parser');
+const router = require('./routes/exercisetracker.route');
+const db = require('./db/db.connect');
 require('dotenv').config();
 
+// database connect
+const database = db;
+
 app.use(cors());
+app.use(bodyParser.urlencoded({ extended: true }));
+app.use(bodyParser.json());
 app.use(express.static('public'));
 app.use('/', router);
 
