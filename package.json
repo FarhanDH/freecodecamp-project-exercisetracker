@@ -5,7 +5,7 @@
     "main": "index.js",
     "scripts": {
         "start": "node src/index.js",
-        "start:dev": "nodemon src/index.js"
+        "start:dev": "node src/index.js --watch"
     },
     "dependencies": {
         "body-parser": "^1.19.0",
@@ -21,8 +21,5 @@
     "keywords": [
         "node",
         "express"
-    ],
-    "devDependencies": {
-        "nodemon": "^3.0.1"
-    }
+    ]
 }
