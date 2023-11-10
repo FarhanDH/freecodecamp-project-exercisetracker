@@ -96,159 +96,83 @@ const addExercises = async (req, res) => {
         });
 };
 
+/**
+ * Retrieves user details by ID with optional query parameters.
+ *
+ * @param {Object} req - The request object.
+ * @param {Object} res - The response object.
+ * @return {Object} The JSON containing user details also based queries if exists.
+ */
 const getDetailById = async (req, res) => {
+    // Get the _id parameter from the request
     const { _id } = req.params;
+    // Get the from, to, and limit query parameters from the request
     const { from, to, limit } = req.query;
+
     try {
-        const getAllById = await UserExercise.findById(_id);
+        // Find the user exercise by its _id
+        const userExercise = await UserExercise.findById(_id);
 
-        // if from and to queries is exists
+        // Helper function to format the date
+        const formatDate = (date) => new Date(date).toDateString();
+
+        // Initialize the log filter with all the logs
+        let logFilter = userExercise.log;
+
+        // Apply filters based on the from and to parameters
         if (from && to) {
-            let toDate;
-            toDate = new Date(to);
-            toDate.setDate(toDate.getDate() + 1); // add one day to 'to' date
-            let logByFromAndToQueries = getAllById.log
-                .filter(
-                    (log) =>
-                        new Date(log.date).getTime() < toDate.getTime() &&
-                        new Date(log.date).getTime() >= new Date(from).getTime()
-                )
-                .map((log) => {
-                    return {
-                        description: log.description,
-                        duration: log.duration,
-                        date: new Date(log.date).toDateString(),
-                    };
-                });
-            if (limit) {
-                logByFromAndToQueries = logByFromAndToQueries.splice(
-                    0,
-                    Number(limit)
-                );
-                const responByToAndLimitQueries = {
-                    _id: getAllById._id,
-                    username: getAllById.username,
-                    from: new Date(from).toDateString(),
-                    to: new Date(to).toDateString(),
-                    count: logByFromAndToQueries.length,
-                    log: logByFromAndToQueries,
-                };
-                return res.json(responByToAndLimitQueries);
-            }
-            const responByToQueries = {
-                _id: getAllById._id,
-                username: getAllById.username,
-                from: new Date(from).toDateString(),
-                to: new Date(to).toDateString(),
-                count: logByFromAndToQueries.length,
-                log: logByFromAndToQueries,
-            };
-            return res.json(responByToQueries);
+            // Convert the to date to the next day
+            const toDate = new Date(to);
+            toDate.setDate(toDate.getDate() + 1);
+            // Filter the logs based on the from and to dates
+            logFilter = logFilter.filter(
+                (log) =>
+                    new Date(log.date).getTime() < toDate.getTime() &&
+                    new Date(log.date).getTime() >= new Date(from).getTime()
+            );
+        } else if (from) {
+            // Filter the logs based on the from date
+            logFilter = logFilter.filter(
+                (log) =>
+                    new Date(log.date).getTime() >= new Date(from).getTime()
+            );
+        } else if (to) {
+            // Convert the to date to the next day
+            const toDate = new Date(to);
+            toDate.setDate(toDate.getDate() + 1);
+            // Filter the logs based on the to date
+            logFilter = logFilter.filter(
+                (log) => new Date(log.date).getTime() < toDate.getTime()
+            );
         }
 
-        // if from query is exist
-        if (from) {
-            let logByFromQuery = getAllById.log
-                .filter(
-                    (log) =>
-                        new Date(log.date).getTime() >= new Date(from).getTime()
-                )
-                .map((log) => {
-                    return {
-                        description: log.description,
-                        duration: log.duration,
-                        date: new Date(log.date).toDateString(),
-                    };
-                });
+        // Map the filtered logs to the desired format
+        let logResult = logFilter.map((log) => ({
+            description: log.description,
+            duration: log.duration,
+            date: formatDate(log.date),
+        }));
 
-            if (limit) {
-                logByFromQuery = logByFromQuery.splice(0, Number(limit));
-                const responByFromAndLimitQueries = {
-                    _id: getAllById._id,
-                    username: getAllById.username,
-                    from: new Date(from).toDateString(),
-                    count: logByFromQuery.length,
-                    log: logByFromQuery,
-                };
-                return res.json(responByFromAndLimitQueries);
-            }
-            const responByFromQueries = {
-                _id: getAllById._id,
-                username: getAllById.username,
-                from: new Date(from).toDateString(),
-                count: logByFromQuery.length,
-                log: logByFromQuery,
-            };
-            return res.json(responByFromQueries);
-        }
-
-        // if to query is exist
-        if (to) {
-            let toDate;
-            toDate = new Date(to);
-            toDate.setDate(toDate.getDate() + 1); // add one day to 'to' date
-            let logByToQuery = getAllById.log
-                .filter(
-                    (log) => new Date(log.date).getTime() < toDate.getTime()
-                )
-                .map((log) => {
-                    return {
-                        description: log.description,
-                        duration: log.duration,
-                        date: new Date(log.date).toDateString(),
-                    };
-                });
-            if (limit) {
-                logByToQuery = logByToQuery.splice(0, Number(limit));
-                const responByToAndLimitQueries = {
-                    _id: getAllById._id,
-                    username: getAllById.username,
-                    to: new Date(to).toDateString(),
-                    count: logByToQuery.length,
-                    log: logByToQuery,
-                };
-                return res.json(responByToAndLimitQueries);
-            }
-            const responByToQueries = {
-                _id: getAllById._id,
-                username: getAllById.username,
-                to: new Date(to).toDateString(),
-                count: logByToQuery.length,
-                log: logByToQuery,
-            };
-            return res.json(responByToQueries);
-        }
-
-        // if limit query exist
+        // Apply the limit if specified
         if (limit) {
-            const logByLimitQuery = getAllById.log.splice(0, Number(limit));
-            const responByLimitQuery = {
-                _id: getAllById._id,
-                username: getAllById.username,
-                count: logByLimitQuery.length,
-                log: logByLimitQuery,
-            };
-            return res.json(responByLimitQuery);
+            logResult = logResult.splice(0, Number(limit));
         }
 
-        // if no queries exists
-        const dateToStringWithNoQueries = await getAllById.log.map((log) => {
-            return {
-                description: log.description,
-                duration: log.duration,
-                date: new Date(log.date).toDateString(),
-            };
-        });
-
-        const newResponWithNoQueries = {
-            _id: getAllById._id,
-            username: getAllById.username,
-            count: getAllById.log.length,
-            log: dateToStringWithNoQueries,
+        // Construct the response object
+        const response = {
+            _id: userExercise._id,
+            username: userExercise.username,
+            from: from ? formatDate(from) : undefined,
+            to: to ? formatDate(to) : undefined,
+            count: logResult.length,
+            log: logResult,
         };
-        return res.json(newResponWithNoQueries);
+
+        // Send the response as JSON
+        return res.json(response);
     } catch (error) {
-        res.json({
+        // Send an error message as JSON if an error occurs
+        return res.json({
             message: error.message,
         });
     }
