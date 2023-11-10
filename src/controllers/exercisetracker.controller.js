@@ -51,7 +51,6 @@ const addExercises = async (req, res) => {
         date,
     };
     findUser.log.push(newExercises);
-    findUser.count = findUser.log.length;
     await findUser
         .save()
         .then(() => {
@@ -75,22 +74,69 @@ const addExercises = async (req, res) => {
 
 const getDetailById = async (req, res) => {
     const { _id } = req.params;
+    const { from, to, limit } = req.query;
     try {
-        const getAll = await UserExercise.findById(_id);
-        const dateToString = await getAll.log.map((exercise) => {
+        const getAllById = await UserExercise.findById(_id);
+
+        // if queries is exists
+        if (from || to) {
+            let toDate;
+            if (to) {
+                toDate = new Date(to);
+                toDate.setDate(toDate.getDate() + 1); // add one day to 'to' date
+            }
+            const logByQueries = getAllById.log
+                .filter(
+                    (log) =>
+                        (!to ||
+                            new Date(log.date).getTime() < toDate.getTime()) &&
+                        (!from ||
+                            new Date(log.date).getTime() >=
+                                new Date(from).getTime())
+                )
+                .map((log) => {
+                    return {
+                        description: log.description,
+                        duration: log.duration,
+                        date: new Date(log.date).toDateString(),
+                    };
+                });
+            if (limit) {
+                const logLimit = logByQueries.splice(0, Number(limit));
+                const newResponIfLimitExist = {
+                    _id: getAllById._id,
+                    username: getAllById.username,
+                    from: new Date(from).toDateString(),
+                    count: logLimit.length,
+                    log: logLimit,
+                };
+                return res.json(newResponIfLimitExist);
+            }
+            const newResponIfLimitNotExist = {
+                _id: getAllById._id,
+                username: getAllById.username,
+                from: new Date(from).toDateString(),
+                count: logByQueries.length,
+                log: logByQueries,
+            };
+            return res.json(newResponIfLimitNotExist);
+        }
+
+        const dateToString = await getAllById.log.map((log) => {
             return {
-                description: exercise.description,
-                duration: exercise.duration,
-                date: new Date(exercise.date).toDateString(),
+                description: log.description,
+                duration: log.duration,
+                date: new Date(log.date).toDateString(),
             };
         });
-        const newRespon = {
-            _id: getAll._id,
-            username: getAll.username,
-            count: getAll.count,
+
+        const newResponIfQueriesNotExists = {
+            _id: getAllById._id,
+            username: getAllById.username,
+            count: getAllById.log.length,
             log: dateToString,
         };
-        res.json(newRespon);
+        return res.json(newResponIfQueriesNotExists);
     } catch (error) {
         res.json({
             message: error.message,
