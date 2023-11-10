@@ -1,11 +1,25 @@
 const path = require('path');
 const UserExercise = require('../db/model/exercisetracker.model');
 
+/**
+ * Sends the home page HTML file as a response.
+ *
+ * @param {object} req - The request object.
+ * @param {object} res - The response object.
+ * @return {object} The response object with the home page HTML file.
+ */
 const homePage = (req, res) => {
     const indexPath = path.join(__dirname, '../../views/index.html');
-    res.sendFile(indexPath);
+    return res.sendFile(indexPath);
 };
 
+/**
+ * Adds a new user to the database.
+ *
+ * @param {Object} req - The request object.
+ * @param {Object} res - The response object.
+ * @return {Object} The response object containing a success message, the new username, and the new user's ID if successful, or an error message if unsuccessful.
+ */
 const addUser = async (req, res) => {
     const { username } = req.body;
     const newUser = new UserExercise({
@@ -14,30 +28,42 @@ const addUser = async (req, res) => {
     await newUser
         .save()
         .then((savedUser) => {
-            res.json({
+            return res.json({
                 message: 'berhasil',
                 username: savedUser.username,
                 _id: savedUser._id,
             });
-            return;
         })
         .catch((error) => {
-            res.json({
+            return res.json({
                 message: 'gagal',
                 error: error.message,
             });
-            return;
         });
 };
 
+/**
+ * Retrieves all users and their information.
+ *
+ * @param {object} req - The request object.
+ * @param {object} res - The response object.
+ * @return {object} An array of user objects with their usernames and IDs.
+ */
 const getAllUsers = async (req, res) => {
     const find = await UserExercise.find();
     const findAllUsers = find.map((user) => {
         return { username: user.username, _id: user._id };
     });
-    res.json(findAllUsers);
+    return res.json(findAllUsers);
 };
 
+/**
+ * Adds exercises to a user's log.
+ *
+ * @param {Object} req - the request object containing parameters and body
+ * @param {Object} res - the response object to send back to the client
+ * @return {Promise} a promise that resolves with the updated user's log or rejects with an error
+ */
 const addExercises = async (req, res) => {
     const { _id } = req.params;
     let { date, duration, description } = req.body;
@@ -54,21 +80,19 @@ const addExercises = async (req, res) => {
     await findUser
         .save()
         .then(() => {
-            res.json({
+            return res.json({
                 _id,
                 username: findUser.username,
                 date: new Date(date).toDateString(),
                 duration: Number(duration),
                 description,
             });
-            return;
         })
         .catch((error) => {
-            res.json({
+            return res.json({
                 message: 'gagal',
                 error: error.message,
             });
-            return;
         });
 };
 
@@ -78,21 +102,16 @@ const getDetailById = async (req, res) => {
     try {
         const getAllById = await UserExercise.findById(_id);
 
-        // if queries is exists
-        if (from || to) {
+        // if from and to queries is exists
+        if (from && to) {
             let toDate;
-            if (to) {
-                toDate = new Date(to);
-                toDate.setDate(toDate.getDate() + 1); // add one day to 'to' date
-            }
-            const logByQueries = getAllById.log
+            toDate = new Date(to);
+            toDate.setDate(toDate.getDate() + 1); // add one day to 'to' date
+            let logByFromAndToQueries = getAllById.log
                 .filter(
                     (log) =>
-                        (!to ||
-                            new Date(log.date).getTime() < toDate.getTime()) &&
-                        (!from ||
-                            new Date(log.date).getTime() >=
-                                new Date(from).getTime())
+                        new Date(log.date).getTime() < toDate.getTime() &&
+                        new Date(log.date).getTime() >= new Date(from).getTime()
                 )
                 .map((log) => {
                     return {
@@ -102,27 +121,118 @@ const getDetailById = async (req, res) => {
                     };
                 });
             if (limit) {
-                const logLimit = logByQueries.splice(0, Number(limit));
-                const newResponIfLimitExist = {
+                logByFromAndToQueries = logByFromAndToQueries.splice(
+                    0,
+                    Number(limit)
+                );
+                const responByToAndLimitQueries = {
                     _id: getAllById._id,
                     username: getAllById.username,
                     from: new Date(from).toDateString(),
-                    count: logLimit.length,
-                    log: logLimit,
+                    to: new Date(to).toDateString(),
+                    count: logByFromAndToQueries.length,
+                    log: logByFromAndToQueries,
                 };
-                return res.json(newResponIfLimitExist);
+                return res.json(responByToAndLimitQueries);
             }
-            const newResponIfLimitNotExist = {
+            const responByToQueries = {
                 _id: getAllById._id,
                 username: getAllById.username,
                 from: new Date(from).toDateString(),
-                count: logByQueries.length,
-                log: logByQueries,
+                to: new Date(to).toDateString(),
+                count: logByFromAndToQueries.length,
+                log: logByFromAndToQueries,
             };
-            return res.json(newResponIfLimitNotExist);
+            return res.json(responByToQueries);
         }
 
-        const dateToString = await getAllById.log.map((log) => {
+        // if from query is exist
+        if (from) {
+            let logByFromQuery = getAllById.log
+                .filter(
+                    (log) =>
+                        new Date(log.date).getTime() >= new Date(from).getTime()
+                )
+                .map((log) => {
+                    return {
+                        description: log.description,
+                        duration: log.duration,
+                        date: new Date(log.date).toDateString(),
+                    };
+                });
+
+            if (limit) {
+                logByFromQuery = logByFromQuery.splice(0, Number(limit));
+                const responByFromAndLimitQueries = {
+                    _id: getAllById._id,
+                    username: getAllById.username,
+                    from: new Date(from).toDateString(),
+                    count: logByFromQuery.length,
+                    log: logByFromQuery,
+                };
+                return res.json(responByFromAndLimitQueries);
+            }
+            const responByFromQueries = {
+                _id: getAllById._id,
+                username: getAllById.username,
+                from: new Date(from).toDateString(),
+                count: logByFromQuery.length,
+                log: logByFromQuery,
+            };
+            return res.json(responByFromQueries);
+        }
+
+        // if to query is exist
+        if (to) {
+            let toDate;
+            toDate = new Date(to);
+            toDate.setDate(toDate.getDate() + 1); // add one day to 'to' date
+            let logByToQuery = getAllById.log
+                .filter(
+                    (log) => new Date(log.date).getTime() < toDate.getTime()
+                )
+                .map((log) => {
+                    return {
+                        description: log.description,
+                        duration: log.duration,
+                        date: new Date(log.date).toDateString(),
+                    };
+                });
+            if (limit) {
+                logByToQuery = logByToQuery.splice(0, Number(limit));
+                const responByToAndLimitQueries = {
+                    _id: getAllById._id,
+                    username: getAllById.username,
+                    to: new Date(to).toDateString(),
+                    count: logByToQuery.length,
+                    log: logByToQuery,
+                };
+                return res.json(responByToAndLimitQueries);
+            }
+            const responByToQueries = {
+                _id: getAllById._id,
+                username: getAllById.username,
+                to: new Date(to).toDateString(),
+                count: logByToQuery.length,
+                log: logByToQuery,
+            };
+            return res.json(responByToQueries);
+        }
+
+        // if limit query exist
+        if (limit) {
+            const logByLimitQuery = getAllById.log.splice(0, Number(limit));
+            const responByLimitQuery = {
+                _id: getAllById._id,
+                username: getAllById.username,
+                count: logByLimitQuery.length,
+                log: logByLimitQuery,
+            };
+            return res.json(responByLimitQuery);
+        }
+
+        // if no queries exists
+        const dateToStringWithNoQueries = await getAllById.log.map((log) => {
             return {
                 description: log.description,
                 duration: log.duration,
@@ -130,13 +240,13 @@ const getDetailById = async (req, res) => {
             };
         });
 
-        const newResponIfQueriesNotExists = {
+        const newResponWithNoQueries = {
             _id: getAllById._id,
             username: getAllById.username,
             count: getAllById.log.length,
-            log: dateToString,
+            log: dateToStringWithNoQueries,
         };
-        return res.json(newResponIfQueriesNotExists);
+        return res.json(newResponWithNoQueries);
     } catch (error) {
         res.json({
             message: error.message,
